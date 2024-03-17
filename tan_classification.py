@@ -152,13 +152,13 @@ if __name__ == '__main__':
             reg_loss = utils.diversity_regularization(time_steps, drate = 0.5)
             # val = torch.where(mask == 1, x_aug, torch.zeros_like(x_aug))
             
-            if beta >0 and random.random() < 0.003:
-            #     # print(f"alpha : {self.alpha}")
-            #     # print(f"original tt : {combined_x[0, :, -1]}")
-            #     print(f"mask_raw: {x_copy[0, :, self.dim:2*self.dim]}")
-            #     print(f"mask : {mask.shape, mask[0]}")
-                print(f"augemented time : {time_steps.shape, time_steps[0]}")
-            #     print(f"val : {val.shape, val[0, :, :self.dim]}")
+            # if beta >0 and random.random() < 0.003:
+            # #     # print(f"alpha : {self.alpha}")
+            # #     # print(f"original tt : {combined_x[0, :, -1]}")
+            # #     print(f"mask_raw: {x_copy[0, :, self.dim:2*self.dim]}")
+            # #     print(f"mask : {mask.shape, mask[0]}")
+            #     print(f"augemented time : {time_steps.shape, time_steps[0]}")
+            # #     print(f"val : {val.shape, val[0, :, :self.dim]}")
             
             # out = rec(torch.cat((augmented_data, augmented_mask), 2), augmented_tp)
             # qz0_mean, qz0_logvar = out[:, :, :args.latent_dim], out[:, :, args.latent_dim:]
@@ -219,9 +219,9 @@ if __name__ == '__main__':
                       train_acc/train_n, mse/train_n, val_loss, val_acc, test_acc, test_auc))
         
         
-        # if best_val_loss * 1.03 < val_loss and beta == 0:
-        #     beta = args.beta
-        #     print("beta is not zero")
+        if best_val_loss * 1.03 < val_loss and beta == 0:
+            beta = args.beta
+            print("beta is not zero")
 
         
             
