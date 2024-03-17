@@ -46,7 +46,7 @@ parser.add_argument('--kl', action='store_true')
 parser.add_argument('--learn-emb', action='store_true')
 parser.add_argument('--dataset', type=str, default='physionet')
 parser.add_argument('--alpha', type=int, default=100)
-parser.add_argument('--beta', type=int, default=100)
+parser.add_argument('--beta', type=int, default=1000000)
 parser.add_argument('--old-split', type=int, default=1)
 parser.add_argument('--nonormalize', action='store_true')
 parser.add_argument('--enc-num-heads', type=int, default=1)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     best_val_loss = float('inf')
     total_time = 0.
-    beta = 0
+    # beta = 0
     for itr in range(1, args.niters + 1):
         train_recon_loss, train_ce_loss, train_reg_loss = 0, 0, 0
         mse = 0
@@ -137,28 +137,49 @@ if __name__ == '__main__':
             observed_data, observed_mask, observed_tp \
                 = train_batch[:, :, :dim], train_batch[:, :, dim:2*dim], train_batch[:, :, -1]
             
-            x_aug, time_steps = aug(observed_tp, torch.cat((observed_data, observed_mask), 2))
-        
-            x_copy = x_aug.clone()
-            
+            x_aug, tp_aug = aug(observed_tp, torch.cat((observed_data, observed_mask), 2))
+                    
             # x_aug_copy = x_aug.clone()
-            mask = torch.where(
+            mask_aug = torch.where(
                 x_aug[:, :, dim:2*dim] < 0.5,  # 조건
                 torch.zeros_like(x_aug[:, :, dim:2*dim]),  # 조건이 True일 때 적용할 값
                 torch.ones_like(x_aug[:, :, dim:2*dim])  # 조건이 False일 때 적용할 값
             )          
 
-            data = x_aug[:, :, :dim]
-            reg_loss = utils.diversity_regularization(time_steps, drate = 0.5)
+            data_aug = x_aug[:, :, :dim]
             # val = torch.where(mask == 1, x_aug, torch.zeros_like(x_aug))
             
-            # if beta >0 and random.random() < 0.003:
-            # #     # print(f"alpha : {self.alpha}")
-            # #     # print(f"original tt : {combined_x[0, :, -1]}")
-            # #     print(f"mask_raw: {x_copy[0, :, self.dim:2*self.dim]}")
-            # #     print(f"mask : {mask.shape, mask[0]}")
-            #     print(f"augemented time : {time_steps.shape, time_steps[0]}")
-            # #     print(f"val : {val.shape, val[0, :, :self.dim]}")
+            data = torch.cat((observed_data, data_aug), -2)
+            mask = torch.cat((observed_mask, mask_aug), -2)
+
+            tt = torch.cat((observed_tp, tp_aug), -1)
+
+            reg_loss = utils.diversity_regularization(tt, drate = 0.5)
+
+            out = rec(torch.cat((data, mask), 2), tt)
+
+            # x_aug, time_steps = aug(observed_tp, torch.cat((observed_data, observed_mask), 2))
+        
+            # # x_copy = x_aug.clone()
+            
+            # # x_aug_copy = x_aug.clone()
+            # mask = torch.where(
+            #     x_aug[:, :, dim:2*dim] < 0.5,  # 조건
+            #     torch.zeros_like(x_aug[:, :, dim:2*dim]),  # 조건이 True일 때 적용할 값
+            #     torch.ones_like(x_aug[:, :, dim:2*dim])  # 조건이 False일 때 적용할 값
+            # )          
+
+            # data = x_aug[:, :, :dim]
+            # reg_loss = utils.diversity_regularization(time_steps, drate = 0.5)
+            # val = torch.where(mask == 1, x_aug, torch.zeros_like(x_aug))
+            
+            # if random.random() < 0.003:
+            #     # print(f"alpha : {self.alpha}")
+            #     # print(f"original tt : {combined_x[0, :, -1]}")
+            #     print(f"mask_raw: {x_copy[0, :, self.dim:2*self.dim]}")
+            #     print(f"mask : {mask.shape, mask[0]}")
+                # print(f"augemented time : {tp_aug.shape, tp_aug[0]}")
+            #     print(f"val : {val.shape, val[0, :, :self.dim]}")
             
             # out = rec(torch.cat((augmented_data, augmented_mask), 2), augmented_tp)
             # qz0_mean, qz0_logvar = out[:, :, :args.latent_dim], out[:, :, args.latent_dim:]
@@ -167,7 +188,7 @@ if __name__ == '__main__':
             # z0 = z0.view(-1, qz0_mean.shape[1], qz0_mean.shape[2])
             # pred_y = classifier(z0)
             
-            out = rec(torch.cat((data, mask), 2), time_steps)
+            # out = rec(torch.cat((data, mask), 2), time_steps)
             qz0_mean, qz0_logvar = out[:, :, :args.latent_dim], out[:, :, args.latent_dim:]
             epsilon = torch.randn(args.k_iwae, qz0_mean.shape[0], qz0_mean.shape[1], qz0_mean.shape[2]).to(device)
             z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean
@@ -186,7 +207,7 @@ if __name__ == '__main__':
             recon_loss = -(torch.logsumexp(logpx - kl_coef * analytic_kl, dim=0).mean(0) - np.log(args.k_iwae))
             label = label.unsqueeze(0).repeat_interleave(args.k_iwae, 0).view(-1)
             ce_loss = criterion(pred_y, label)
-            loss = recon_loss + args.alpha*ce_loss + beta*reg_loss
+            loss = recon_loss + args.alpha*ce_loss + args.beta*reg_loss
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -213,15 +234,15 @@ if __name__ == '__main__':
             optimizer_state_dict = optimizer.state_dict()
         test_loss, test_acc, test_auc = utils.evaluate_classifier(
             rec, aug, test_loader, args=args, classifier=classifier, reconst=True, num_sample=1, dim=dim)
-        cur_reg_loss = 10000*train_reg_loss/train_n
+        cur_reg_loss = 1000000*train_reg_loss/train_n
         print('Iter: {}, recon_loss: {:.4f}, ce_loss: {:.4f}, reg_loss: {:.4f}, acc: {:.4f}, mse: {:.4f}, val_loss: {:.4f}, val_acc: {:.4f}, test_acc: {:.4f}, test_auc: {:.4f}'
               .format(itr, train_recon_loss/train_n, args.alpha*train_ce_loss/train_n, cur_reg_loss,
                       train_acc/train_n, mse/train_n, val_loss, val_acc, test_acc, test_auc))
         
         
-        if best_val_loss * 1.03 < val_loss and beta == 0:
-            beta = args.beta
-            print("beta is not zero")
+        # if best_val_loss * 1.03 < val_loss and beta == 0:
+        #     beta = args.beta
+        #     print("beta is not zero")
 
         
             

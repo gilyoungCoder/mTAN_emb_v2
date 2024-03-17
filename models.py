@@ -87,34 +87,34 @@ class TimeSeriesAugmentation(nn.Module):
         super(TimeSeriesAugmentation, self).__init__()
         # 숨겨진 표현을 추출하기 위한 초기 변환 레이어
         # self.initial_transform = nn.Linear(input_dim, hidden_dim)
-        # self.initial_transform = nn.Sequential(
-        #     nn.Linear(input_dim, 300),
-        #     nn.ReLU(),
-        #     nn.Linear(300, hidden_dim))
+        self.initial_transform = nn.Sequential(
+            nn.Linear(input_dim, 300),
+            nn.ReLU(),
+            nn.Linear(300, hidden_dim))
         self.dim = input_dim
         # Set Transformer 모델
-        self.set_transformer = SetTransformer(dim_input=input_dim, num_outputs=num_outputs, dim_output=output_dim)
+        self.set_transformer = SetTransformer(dim_input=hidden_dim, num_outputs=num_outputs, dim_output=hidden_dim)
         
         # 증폭된 숨겨진 표현을 (t, x) 형식으로 변환하기 위한 레이어
         # self.final_transform = nn.Linear(hidden_dim, output_dim)
-        # self.final_transform = nn.Sequential(
-        #     nn.Linear(hidden_dim, 300),
-        #     nn.ReLU(),
-        #     nn.Linear(300, output_dim))
+        self.final_transform = nn.Sequential(
+            nn.Linear(hidden_dim, 300),
+            nn.ReLU(),
+            nn.Linear(300, output_dim))
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, t, x):
         # t와 x를 concatenate하여 초기 변환 레이어에 입력
         tx = torch.cat([x, t.unsqueeze(-1)], dim=-1)
-        # hidden_representation = self.initial_transform(tx)
+        hidden_representation = self.initial_transform(tx)
         
         # Set Transformer를 사용하여 숨겨진 표현 증폭
-        # augmented_representation = self.set_transformer(hidden_representation)
-        augmented_representation = self.set_transformer(tx)
+        augmented_representation = self.set_transformer(hidden_representation)
+        # augmented_representation = self.set_transformer(tx)
         
         # 증폭된 숨겨진 표현을 (t, x) 형식으로 변환
-        # augmented_out = self.final_transform(augmented_representation)
-        output = self.sigmoid(augmented_representation)
+        augmented_out = self.final_transform(augmented_representation)
+        output = self.sigmoid(augmented_out)
         
         # 새로운 t와 x 분리
         new_x, new_t = output[ :, :, :self.dim-1], output[:, :, -1]
