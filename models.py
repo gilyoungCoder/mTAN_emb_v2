@@ -106,16 +106,18 @@ class TimeSeriesAugmentation(nn.Module):
     def forward(self, t, x):
         # t와 x를 concatenate하여 초기 변환 레이어에 입력
         tx = torch.cat([x, t.unsqueeze(-1)], dim=-1)
-        hidden_representation = self.initial_transform(tx)
+        # hidden_representation = self.initial_transform(tx)
         
         # Set Transformer를 사용하여 숨겨진 표현 증폭
         augmented_representation = self.set_transformer(hidden_representation)
         # augmented_representation = self.set_transformer(tx)
         
         # 증폭된 숨겨진 표현을 (t, x) 형식으로 변환
-        augmented_out = self.final_transform(augmented_representation)
-        output = self.sigmoid(augmented_out)
-        
+        # augmented_out = self.final_transform(augmented_representation)
+
+        # output = self.sigmoid(augmented_out)
+        output = self.sigmoid(augmented_representation)
+
         # 새로운 t와 x 분리
         new_x, new_t = output[ :, :, :self.dim-1], output[:, :, -1]
         return new_x, new_t
