@@ -122,7 +122,7 @@ def evaluate_classifier(model, aug, dec, test_loader, args=None, classifier=None
                 # z0: torch.Size([50(batch), 128(rftp), 20(ldim)]), out: torch.Size([50, 128, 40]), observed_data: torch.Size([50, 203, 41]), observed_tp: torch.Size([50, 203]), pred_y: torch.Size([50, 2])
                 # compute loss
                 logpx, analytic_kl = compute_losses(
-                    dim, train_batch, qz0_mean, qz0_logvar, pred_x, args, device)
+                    dim, test_batch, qz0_mean, qz0_logvar, pred_x, args, device)
                 recon_loss = -(torch.logsumexp(logpx - kl_coef * analytic_kl, dim=0).mean(0) - np.log(args.k_iwae))
 
                 if args.classify_pertp:
