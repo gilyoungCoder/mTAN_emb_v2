@@ -103,8 +103,6 @@ def evaluate_classifier(model, aug, dec, kl_coef, test_loader, args=None, classi
             mask = torch.cat((observed_mask, mask_aug), -2)
 
             tt = torch.cat((observed_tp, tp_aug), -1)
-
-            reg_loss = diversity_regularization(tt, drate = args.drate)
             
             out = model(torch.cat((data, mask), 2), tt)
 
