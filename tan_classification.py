@@ -54,6 +54,8 @@ parser.add_argument('--dec-num-heads', type=int, default=1)
 parser.add_argument('--num-ref-points', type=int, default=128)
 parser.add_argument('--classify-pertp', action='store_true')
 parser.add_argument('--aug-ratio', type=int, default=2)
+parser.add_argument('--drate', type=float, default=1)
+
 
 args = parser.parse_args()
 
@@ -154,7 +156,7 @@ if __name__ == '__main__':
 
             tt = torch.cat((observed_tp, tp_aug), -1)
 
-            reg_loss = utils.diversity_regularization(tt, drate = 0.5)
+            reg_loss = utils.diversity_regularization(tt, drate = args.drate)
 
             out = rec(torch.cat((data, mask), 2), tt)
 
