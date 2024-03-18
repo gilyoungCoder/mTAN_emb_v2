@@ -76,7 +76,7 @@ def compute_losses(dim, dec_train_batch, qz0_mean, qz0_logvar, pred_x, args, dev
     return logpx, analytic_kl
 
 
-def evaluate_classifier(model, aug, test_loader, dec=None, args=None, classifier=None,
+def evaluate_classifier(model, aug, dec, test_loader, args=None, classifier=None,
                         dim=41, device='cuda', reconst=False, num_sample=1):
     pred = []
     true = []
@@ -104,6 +104,8 @@ def evaluate_classifier(model, aug, test_loader, dec=None, args=None, classifier
 
             tt = torch.cat((observed_tp, tp_aug), -1)
 
+            reg_loss = diversity_regularization(tt, drate = args.drate)
+            
             out = model(torch.cat((data, mask), 2), tt)
 
             if reconst:
@@ -113,6 +115,16 @@ def evaluate_classifier(model, aug, test_loader, dec=None, args=None, classifier
                     num_sample, qz0_mean.shape[0], qz0_mean.shape[1], qz0_mean.shape[2]).to(device)
                 z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean
                 z0 = z0.view(-1, qz0_mean.shape[1], qz0_mean.shape[2])
+                # print(f"z0: {z0.shape}, out: {out.shape}, observed_data: {observed_data.shape}, observed_tp: {observed_tp.shape}, pred_y: {pred_y.shape}")
+                pred_x = dec(
+                    z0, observed_tp[None, :, :].repeat(args.k_iwae, 1, 1).view(-1, observed_tp.shape[1]))
+                pred_x = pred_x.view(args.k_iwae, batch_len, pred_x.shape[1], pred_x.shape[2]) #nsample, batch, seqlen, dim
+                # z0: torch.Size([50(batch), 128(rftp), 20(ldim)]), out: torch.Size([50, 128, 40]), observed_data: torch.Size([50, 203, 41]), observed_tp: torch.Size([50, 203]), pred_y: torch.Size([50, 2])
+                # compute loss
+                logpx, analytic_kl = compute_losses(
+                    dim, train_batch, qz0_mean, qz0_logvar, pred_x, args, device)
+                recon_loss = -(torch.logsumexp(logpx - kl_coef * analytic_kl, dim=0).mean(0) - np.log(args.k_iwae))
+
                 if args.classify_pertp:
                     pred_x = dec(z0, observed_tp[None, :, :].repeat(
                         num_sample, 1, 1).view(-1, observed_tp.shape[1]))
@@ -129,7 +141,7 @@ def evaluate_classifier(model, aug, test_loader, dec=None, args=None, classifier
             else:
                 label = label.unsqueeze(0).repeat_interleave(
                     num_sample, 0).view(-1)
-                test_loss += nn.CrossEntropyLoss()(out, label).item() * batch_len * num_sample
+                test_loss += (nn.CrossEntropyLoss()(out, label).item() * args.alpha + reg_loss * args.beta + recon_loss )*  batch_len * num_sample
         pred.append(out.cpu().numpy())
         true.append(label.cpu().numpy())
     pred = np.concatenate(pred, 0)
