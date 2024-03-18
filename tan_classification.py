@@ -224,7 +224,7 @@ if __name__ == '__main__':
             
         total_time += time.time() - start_time
         val_loss, val_acc, val_auc = utils.evaluate_classifier(
-            rec, aug, dec, val_loader, args=args, classifier=classifier, reconst=True, num_sample=1, dim=dim)
+            rec, aug, dec, kl_coef, val_loader, args=args, classifier=classifier, reconst=True, num_sample=1, dim=dim)
         vessl.log(step = itr, payload ={'Loss/Val': val_loss,
                                                 'Accuracy/Val': val_acc,
                                                 'AUC/Val': val_auc})
@@ -235,7 +235,7 @@ if __name__ == '__main__':
             classifier_state_dict = classifier.state_dict()
             optimizer_state_dict = optimizer.state_dict()
         test_loss, test_acc, test_auc = utils.evaluate_classifier(
-            rec, aug, dec, test_loader, args=args, classifier=classifier, reconst=True, num_sample=1, dim=dim)
+            rec, aug, dec, kl_coef, test_loader, args=args, classifier=classifier, reconst=True, num_sample=1, dim=dim)
         cur_reg_loss = 1000000*train_reg_loss/train_n
         print('Iter: {}, recon_loss: {:.4f}, ce_loss: {:.4f}, reg_loss: {:.4f}, acc: {:.4f}, mse: {:.4f}, val_loss: {:.4f}, val_acc: {:.4f}, test_acc: {:.4f}, test_auc: {:.4f}'
               .format(itr, train_recon_loss/train_n, args.alpha*train_ce_loss/train_n, cur_reg_loss,

@@ -76,7 +76,7 @@ def compute_losses(dim, dec_train_batch, qz0_mean, qz0_logvar, pred_x, args, dev
     return logpx, analytic_kl
 
 
-def evaluate_classifier(model, aug, dec, test_loader, args=None, classifier=None,
+def evaluate_classifier(model, aug, dec, kl_coef, test_loader, args=None, classifier=None,
                         dim=41, device='cuda', reconst=False, num_sample=1):
     pred = []
     true = []
@@ -123,6 +123,7 @@ def evaluate_classifier(model, aug, dec, test_loader, args=None, classifier=None
                 # compute loss
                 logpx, analytic_kl = compute_losses(
                     dim, test_batch, qz0_mean, qz0_logvar, pred_x, args, device)
+                
                 recon_loss = -(torch.logsumexp(logpx - kl_coef * analytic_kl, dim=0).mean(0) - np.log(args.k_iwae))
 
                 if args.classify_pertp:
